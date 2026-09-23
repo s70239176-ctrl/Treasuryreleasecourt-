@@ -8,7 +8,7 @@ import { writeWithFees, extractErrorMessage, type WriteCall, type WriteProgress,
 import { cn, shortAddress } from "@/lib/utils";
 
 const STAGES: { key: WriteStage; label: string }[] = [
-  { key: "estimating", label: "Estimating fees" },
+  { key: "submitting", label: "Submitting" },
   { key: "submitted", label: "Submitted" },
   { key: "accepted", label: "Accepted" },
   { key: "finalized", label: "Finalized" },
@@ -19,9 +19,9 @@ function stageIndex(stage?: WriteStage) {
 }
 
 /**
- * Shared hook for every write action in the app. Drives fee estimation,
- * submission, and consensus waiting, and exposes progress state a panel can
- * render inline. Invalidates court/packets/verdicts queries on success.
+ * Shared hook for every write action in the app. Drives submission and
+ * consensus waiting, and exposes progress state a panel can render inline.
+ * Invalidates court/packets/verdicts queries on success.
  */
 export function useWriteAction() {
   const { address, provider } = useWallet();
@@ -36,7 +36,7 @@ export function useWriteAction() {
         return;
       }
       setPending(true);
-      setProgress({ stage: "estimating" });
+      setProgress({ stage: "submitting" });
       try {
         await writeWithFees(address as `0x${string}`, provider, call, (p) =>
           setProgress(p)
@@ -112,7 +112,7 @@ export function FeeNote() {
   return (
     <div className="mt-2 flex items-center gap-1.5 text-[11px] text-court-muted">
       <Coins className="h-3 w-3" />
-      Fees are estimated live before every write.
+      Network fees are handled automatically by the chain.
     </div>
   );
 }

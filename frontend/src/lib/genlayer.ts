@@ -1,34 +1,40 @@
-import { createClient, type GenLayerClient } from "genlayer-js";
-import { studionet, studioDev } from "genlayer-js/chains";
-import { TransactionStatus } from "genlayer-js/types";
+import { createClient } from "genlayer-js";
+import { studionet } from "genlayer-js/chains";
+import {
+  TransactionStatus,
+  type CalldataEncodable,
+  type TransactionHash,
+} from "genlayer-js/types";
 
-export type ChainName = "studionet" | "studio-dev";
+// This app only ever talks to the deployed contract on studionet — no
+// localnet/testnet/studio-dev switching, so there's nothing to drift out of
+// sync with genlayer-js's export list as the SDK evolves.
+export type ChainName = "studionet";
 
 export const CONTRACT_ADDRESS = (process.env.NEXT_PUBLIC_CONTRACT_ADDRESS ??
   "") as `0x${string}`;
 
-export const CHAIN_NAME = (process.env.NEXT_PUBLIC_CHAIN ??
-  "studionet") as ChainName;
+export const CHAIN_NAME: ChainName = "studionet";
 
 export function resolveChain(name: ChainName) {
   switch (name) {
     case "studionet":
       return studionet;
-    case "studio-dev":
-      return studioDev;
     default:
       throw new Error(`Unsupported chain "${name}"`);
   }
 }
 
-let readClient: GenLayerClient<typeof studionet> | null = null;
+type GenLayerReadClient = ReturnType<typeof createClient>;
+
+let readClient: GenLayerReadClient | null = null;
 
 /** A read-only client, no wallet required. Used for polling get_court / views. */
 export function getReadClient() {
   if (!readClient) {
     readClient = createClient({
       chain: resolveChain(CHAIN_NAME),
-    }) as GenLayerClient<typeof studionet>;
+    });
   }
   return readClient;
 }
@@ -45,12 +51,12 @@ export function getWriteClient(account: `0x${string}`, provider: any) {
 
 export interface WriteCall {
   functionName: string;
-  args: unknown[];
+  args: CalldataEncodable[];
   value?: bigint;
 }
 
 export type WriteStage =
-  | "estimating"
+  | "submitting"
   | "submitted"
   | "accepted"
   | "finalized"
@@ -63,8 +69,13 @@ export interface WriteProgress {
 }
 
 /**
- * Perform a real fee-estimated write against the deployed contract, driving
- * onProgress through estimating -> submitted -> accepted -> finalized.
+ * Write against the deployed contract, driving onProgress through
+ * submitting -> submitted -> accepted -> finalized.
+ *
+ * This installed version of genlayer-js has no separate fee-estimation call
+ * (no client.estimateTransactionFeesForWrite) — writeContract takes the
+ * value/args directly and the network handles fees internally, so there's
+ * no "estimating" stage anymore.
  * Never mocked: every call here hits the live GenLayer network.
  */
 export async function writeWithFees(
@@ -76,32 +87,16 @@ export async function writeWithFees(
   const client = getWriteClient(account, provider);
   await client.connect(CHAIN_NAME);
 
-  const writeRequest = {
-    address: CONTRACT_ADDRESS,
-    functionName: call.functionName,
-    args: call.args,
-    ...(call.value !== undefined ? { value: call.value } : {}),
-  };
+  onProgress?.({ stage: "submitting" });
 
-  onProgress?.({ stage: "estimating" });
-  let estimate;
+  let txId: TransactionHash;
   try {
-    estimate = await client.estimateTransactionFeesForWrite(writeRequest as any);
-  } catch (err: any) {
-    const message = extractErrorMessage(err);
-    onProgress?.({ stage: "error", error: message });
-    throw new Error(message);
-  }
-
-  let txId: string;
-  try {
-    txId = await client.writeContract({
-      ...writeRequest,
-      fees: {
-        distribution: estimate.distribution,
-        feeValue: estimate.feeValue,
-      },
-    } as any);
+    txId = (await client.writeContract({
+      address: CONTRACT_ADDRESS,
+      functionName: call.functionName,
+      args: call.args,
+      value: call.value ?? BigInt(0),
+    })) as TransactionHash;
   } catch (err: any) {
     const message = extractErrorMessage(err);
     onProgress?.({ stage: "error", error: message });
@@ -112,13 +107,13 @@ export async function writeWithFees(
 
   try {
     await client.waitForTransactionReceipt({
-      hash: txId as `0x${string}`,
+      hash: txId,
       status: TransactionStatus.ACCEPTED,
     });
     onProgress?.({ stage: "accepted", txId });
 
     await client.waitForTransactionReceipt({
-      hash: txId as `0x${string}`,
+      hash: txId,
       status: TransactionStatus.FINALIZED,
     });
     onProgress?.({ stage: "finalized", txId });
@@ -131,18 +126,22 @@ export async function writeWithFees(
   return txId;
 }
 
-/** Read a view function from the contract, always against "accepted" state. */
+/**
+ * Read a view function from the contract.
+ * 1.1.8's readContract no longer takes a stateStatus filter (that param
+ * doesn't exist on this version's type at all) — it just returns current
+ * contract state directly.
+ */
 export async function readView<T = unknown>(
   functionName: string,
-  args: unknown[] = []
+  args: CalldataEncodable[] = []
 ): Promise<T> {
   const client = getReadClient();
   const result = await client.readContract({
     address: CONTRACT_ADDRESS,
     functionName,
     args,
-    stateStatus: "accepted",
-  } as any);
+  });
   return result as T;
 }
 
