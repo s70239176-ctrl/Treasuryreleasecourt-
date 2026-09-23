@@ -124,7 +124,7 @@ npm run dev
 ```
 
 Open http://localhost:3000, connect an EIP-1193 wallet pointed at the same
-network (studionet / studio-dev), and the dashboard starts polling `get_court`.
+network (studionet / localnet), and the dashboard starts polling `get_court`.
 
 ## Demo walkthrough (matches the required end-to-end script)
 
@@ -174,7 +174,7 @@ Studio once a contract is deployed.
 | Var | Where | Purpose |
 |---|---|---|
 | `NEXT_PUBLIC_CONTRACT_ADDRESS` | `frontend/.env.local` | deployed contract address |
-| `NEXT_PUBLIC_CHAIN` | `frontend/.env.local` | `studionet` or `studio-dev` |
+| `NEXT_PUBLIC_CHAIN` | `frontend/.env.local` | `studionet`, `localnet`, `testnetAsimov`, or `testnetBradbury` |
 | `DEPLOYER_PRIVATE_KEY` | `deploy/.env` | steward account used to deploy |
 | `BENEFICIARY_ADDRESS`, `TREASURY_ADDRESS` | `deploy/.env` | payout recipients |
 | `TRANCHE_GEN`, `APPEAL_BOND_GEN` | `deploy/.env` | decimal GEN amounts |
@@ -183,16 +183,18 @@ Studio once a contract is deployed.
 
 ## Studio vs Bradbury
 
-- **Studio (studionet / studio-dev)** simulates account balances via the
+- **Studio (studionet / localnet)** simulates account balances via the
   built-in faucet — GEN there is test currency with no real value, ideal for
   the demo script above. Fee estimation still runs for real against the
-  Studio network's fee model.
-- **Bradbury** (or any public GenLayer network) charges real fees and moves
-  real GEN. The same `writeWithFees` / `deploy.ts` code path works unchanged —
-  only `NEXT_PUBLIC_CHAIN` / `CHAIN` and the funding source change. Add a
-  Bradbury chain entry to `resolveChain()` in `frontend/src/lib/genlayer.ts`
-  and `deploy/deploy.ts` (matching whatever `genlayer-js/chains` exports for
-  it) before pointing either at a public network.
+  Studio network's fee model. `localnet` is the local Docker-based Studio
+  started via `genlayer up`; `studionet` is the hosted version at
+  studio.genlayer.com.
+- **Bradbury** (`testnetBradbury`) is GenLayer's public testnet and charges
+  real fees. The same `writeWithFees` / `deploy.ts` code path works
+  unchanged — both already resolve `testnetBradbury` from
+  `genlayer-js/chains` in `resolveChain()`. Just set `NEXT_PUBLIC_CHAIN=testnetBradbury`
+  (and `CHAIN=testnetBradbury` for the deploy script) and fund your account
+  from a testnet faucet instead of Studio's simulated one.
 
 ## Engineering notes
 

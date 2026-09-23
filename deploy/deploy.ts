@@ -21,10 +21,9 @@
 import "dotenv/config";
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { createClient } from "genlayer-js";
-import { studionet, studioDev } from "genlayer-js/chains";
+import { createClient, createAccount } from "genlayer-js";
+import { localnet, studionet, testnetAsimov, testnetBradbury } from "genlayer-js/chains";
 import { TransactionStatus } from "genlayer-js/types";
-import { createAccount } from "genlayer-js/accounts";
 
 function readEnv(name: string, fallback?: string): string {
   const v = process.env[name] ?? fallback;
@@ -38,12 +37,16 @@ function resolveChain(name: string) {
   switch (name) {
     case "studionet":
       return studionet;
-    case "studio-dev":
-      return studioDev;
+    case "localnet":
+      return localnet;
+    case "testnetAsimov":
+      return testnetAsimov;
+    case "testnetBradbury":
+      return testnetBradbury;
     default:
       throw new Error(
-        `Unsupported CHAIN "${name}". Use "studionet" or "studio-dev", ` +
-          `or add a Bradbury chain config here (see README "Studio vs Bradbury").`
+        `Unsupported CHAIN "${name}". Use "studionet", "localnet", ` +
+          `"testnetAsimov", or "testnetBradbury".`
       );
   }
 }
@@ -79,7 +82,9 @@ async function main() {
     account,
     provider: undefined, // node/CLI context: genlayer-js signs locally with the account
   });
-  await client.connect(chainName as "studionet" | "studio-dev");
+  await client.connect(
+    chainName as "studionet" | "localnet" | "testnetAsimov" | "testnetBradbury"
+  );
 
   console.log(`Deploying TreasuryReleaseCourt to ${chainName} (chain id ${chain.id})`);
   console.log(`  deployer:    ${account.address}`);
@@ -107,22 +112,14 @@ async function main() {
     committeeKindsCsv,
   ];
 
-  const deployTx = {
+  // This installed version of genlayer-js has no separate
+  // estimateTransactionFeesForDeploy call — deployContract takes code/args
+  // directly and the network handles fees internally.
+  const deployTxId = await client.deployContract({
+    account,
     code: contractCode,
     args: deployArgs,
-  };
-
-  // Real fee estimation — never skipped, matches the UI's write flow.
-  const estimate = await client.estimateTransactionFeesForDeploy(deployTx as any);
-  console.log("Estimated deploy fee:", estimate);
-
-  const deployTxId = await client.deployContract({
-    ...deployTx,
-    fees: {
-      distribution: estimate.distribution,
-      feeValue: estimate.feeValue,
-    },
-  } as any);
+  });
 
   console.log(`Deploy tx submitted: ${deployTxId}`);
   console.log("Waiting for ACCEPTED...");
