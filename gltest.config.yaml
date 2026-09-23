@@ -1,0 +1,22 @@
+# gltest configuration for TreasuryReleaseCourt
+# See: https://docs.genlayer.com/developers/testing for the current schema.
+
+default_network: studionet
+
+networks:
+  studionet:
+    id: 61999
+    url: https://studio.genlayer.com/api
+  studio-dev:
+    id: 61997
+    url: http://localhost:4000/api
+
+contracts_dir: contracts
+tests_dir: tests/direct
+
+# Direct-mode tests mock gl.nondet.exec_prompt / gl.nondet.web.render /
+# gl.eq_principle.prompt_comparative so state-machine guards run
+# deterministically and cheaply. Nothing in tests/integration or the
+# frontend uses these mocks — those paths hit the real network.
+mock_llm: true
+mock_web: true

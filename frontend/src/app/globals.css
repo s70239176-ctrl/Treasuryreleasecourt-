@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+html, body {
+  background-color: #05060a;
+  color: #e6e8f0;
+}
+
+body {
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(79,125,255,0.08), transparent 40%),
+    radial-gradient(circle at 85% 20%, rgba(139,92,246,0.08), transparent 40%);
+  min-height: 100vh;
+}
+
+* {
+  border-color: #1c2130;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #1c2130;
+  border-radius: 4px;
+}
+
+.font-mono-tabular {
+  font-variant-numeric: tabular-nums;
+}
